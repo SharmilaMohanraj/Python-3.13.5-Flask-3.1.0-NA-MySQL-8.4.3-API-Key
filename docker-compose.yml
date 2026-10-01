@@ -1,0 +1,52 @@
+services:
+  mysql:
+    image: mysql:8.4.3
+    container_name: lms_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: lms_db
+      MYSQL_USER: lms_user
+      MYSQL_PASSWORD: lms_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - lms_network
+
+  flask:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lms_flask
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: lms_user
+      MYSQL_PASSWORD: lms_password
+      MYSQL_DB: lms_db
+      JWT_SECRET: change-me-to-a-long-random-value
+      JWT_EXP_MINUTES: 60
+      LOG_LEVEL: INFO
+    ports:
+      - "8000:8000"
+    networks:
+      - lms_network
+
+volumes:
+  db_data:
+
+networks:
+  lms_network:
+    driver: bridge
